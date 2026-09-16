@@ -10,6 +10,9 @@ const ENV_KEYS = [
   "API_AUTH_ENABLED",
   "API_CLIENTS_JSON",
   "RELAYER_SIGNER_BALANCE_SAMPLE_INTERVAL_MS",
+  "RELAYER_SIGNER_BALANCE_PRICING_ENABLED",
+  "TOKEN_PRICE_API_URL",
+  "TOKEN_PRICE_REQUEST_TIMEOUT_MS",
   "SAFE_API_KEY",
   "SAFE_AUTHORIZATION_ENABLED",
 ] as const;
@@ -47,6 +50,34 @@ describe("loadEnv", () => {
     expect(env.relayerSignerBalanceSampleIntervalMs).toBe(60 * 60 * 1000);
     expect(env.safeAuthorizationEnabled).toBe(false);
     expect(env.safeApiKey).toBeNull();
+  });
+
+  it("defaults relayer signer balance pricing to the Superfluid token-prices API", () => {
+    process.env.DATABASE_PATH = ":memory:";
+    setRequiredEnv();
+    const env = loadEnv();
+    expect(env.relayerSignerBalancePricingEnabled).toBe(true);
+    expect(env.tokenPriceApiUrl).toBe("https://token-prices-api.superfluid.dev");
+    expect(env.tokenPriceRequestTimeoutMs).toBe(10_000);
+  });
+
+  it("parses relayer signer balance pricing overrides", () => {
+    process.env.DATABASE_PATH = ":memory:";
+    setRequiredEnv();
+    process.env.RELAYER_SIGNER_BALANCE_PRICING_ENABLED = "false";
+    process.env.TOKEN_PRICE_API_URL = "http://prices.local:8080/";
+    process.env.TOKEN_PRICE_REQUEST_TIMEOUT_MS = "2500";
+    const env = loadEnv();
+    expect(env.relayerSignerBalancePricingEnabled).toBe(false);
+    expect(env.tokenPriceApiUrl).toBe("http://prices.local:8080");
+    expect(env.tokenPriceRequestTimeoutMs).toBe(2500);
+  });
+
+  it("rejects an invalid TOKEN_PRICE_API_URL", () => {
+    process.env.DATABASE_PATH = ":memory:";
+    setRequiredEnv();
+    process.env.TOKEN_PRICE_API_URL = "not a url";
+    expect(() => loadEnv()).toThrow(/TOKEN_PRICE_API_URL/);
   });
 
   it("parses relayer signer balance sample interval", () => {

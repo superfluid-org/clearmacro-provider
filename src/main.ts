@@ -16,6 +16,7 @@ import { processAuthorizationWorkerTick } from "./relayer/authorizationWorker.js
 import { createApp } from "./app.js";
 import { createReadyzReadinessCache } from "./chain/readinessCache.js";
 import { startRelayerSignerBalanceSampler } from "./chain/relayerBalanceSampler.js";
+import { TokenPriceClient } from "./chain/tokenPrice.js";
 import {
   evaluateChainReadiness,
   getForwarderDigest,
@@ -148,15 +149,27 @@ async function main(): Promise<void> {
   }
 
   if (env.relayerSignerBalanceSampleIntervalMs > 0) {
+    const priceClient = env.relayerSignerBalancePricingEnabled
+      ? new TokenPriceClient({
+          baseUrl: env.tokenPriceApiUrl,
+          timeoutMs: env.tokenPriceRequestTimeoutMs,
+          logger: app.log,
+        })
+      : undefined;
     startRelayerSignerBalanceSampler({
       registry,
       relayerClient,
       metrics,
+      priceClient,
       intervalMs: env.relayerSignerBalanceSampleIntervalMs,
       logger: app.log,
     });
     app.log.info(
-      { intervalMs: env.relayerSignerBalanceSampleIntervalMs },
+      {
+        intervalMs: env.relayerSignerBalanceSampleIntervalMs,
+        pricingEnabled: env.relayerSignerBalancePricingEnabled,
+        tokenPriceApiUrl: env.relayerSignerBalancePricingEnabled ? env.tokenPriceApiUrl : null,
+      },
       "relayer signer balance sampler started",
     );
   }

@@ -147,6 +147,12 @@ export function loadEnv() {
     readinessOzRetryBaseDelayMs: parseInteger("READINESS_OZ_RETRY_BASE_DELAY_MS", 100, 1),
     /** Background relayer signer balance sampler interval (0 disables). Default 60 minutes. */
     relayerSignerBalanceSampleIntervalMs: parseRelayerSignerBalanceSampleIntervalMs(),
+    /** Value sampled relayer signer balances in USD via the Superfluid token-prices API (as balance-watcher does). */
+    relayerSignerBalancePricingEnabled: parseBoolean("RELAYER_SIGNER_BALANCE_PRICING_ENABLED", true),
+    /** Base URL of the token-prices API used for USD valuation. */
+    tokenPriceApiUrl: parseTokenPriceApiUrl(),
+    /** Per-request timeout for token price lookups. */
+    tokenPriceRequestTimeoutMs: parseInteger("TOKEN_PRICE_REQUEST_TIMEOUT_MS", 10_000, 1),
     /** Background readiness gauge sampler interval (0 disables). Default 30 seconds. */
     readinessMetricsIntervalMs: parseSamplerIntervalMs("READINESS_METRICS_INTERVAL_MS", 30_000),
     /** Background oldest non-terminal execution age sampler interval (0 disables). Default 30 seconds. */
@@ -179,6 +185,24 @@ function parseRelayerSignerBalanceSampleIntervalMs(): number {
     );
   }
   return parsed;
+}
+
+const TOKEN_PRICE_API_URL_DEFAULT = "https://token-prices-api.superfluid.dev";
+
+function parseTokenPriceApiUrl(): string {
+  const value = process.env.TOKEN_PRICE_API_URL?.trim();
+  if (!value) {
+    return TOKEN_PRICE_API_URL_DEFAULT;
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("unsupported protocol");
+    }
+  } catch {
+    throw new Error(`Invalid URL env var TOKEN_PRICE_API_URL: ${value}`);
+  }
+  return value.replace(/\/+$/, "");
 }
 
 function parseSamplerIntervalMs(name: string, fallback: number): number {

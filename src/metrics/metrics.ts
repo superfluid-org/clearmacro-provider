@@ -77,6 +77,27 @@ export function createMetrics() {
     registers: [registry],
   });
 
+  const relayerSignerNativeTokenPriceUsd = new Gauge({
+    name: "clearmacro_relayer_signer_native_token_price_usd",
+    help: "USD price of the chain's native gas token used to value the relayer signer balance",
+    labelNames: ["chain_id", "network"] as const,
+    registers: [registry],
+  });
+
+  const relayerSignerBalanceUsd = new Gauge({
+    name: "clearmacro_relayer_signer_balance_usd",
+    help: "Latest sampled native-token balance of the bound OpenZeppelin Relayer signer, valued in USD",
+    labelNames: ["chain_id", "network"] as const,
+    registers: [registry],
+  });
+
+  const relayerSignerBalancePriceProbeSuccess = new Gauge({
+    name: "clearmacro_relayer_signer_balance_price_probe_success",
+    help: "1 when the latest native-token price fetch for this chain succeeded, 0 otherwise",
+    labelNames: ["chain_id", "network"] as const,
+    registers: [registry],
+  });
+
   const safeAuthorizationPollCounter = new Counter({
     name: "clearmacro_safe_authorization_poll_total",
     help: "Safe authorization poll outcomes",
@@ -110,6 +131,9 @@ export function createMetrics() {
     relayerSignerBalanceNative,
     relayerSignerBalanceProbeSuccess,
     relayerSignerBalanceLastUpdateTimestampSeconds,
+    relayerSignerNativeTokenPriceUsd,
+    relayerSignerBalanceUsd,
+    relayerSignerBalancePriceProbeSuccess,
     safeAuthorizationPollCounter,
     actionableFailureCounter,
     operationalRetryCounter,
