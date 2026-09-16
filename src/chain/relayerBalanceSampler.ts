@@ -19,11 +19,7 @@ export type RelayerBalanceSamplerMetrics = Pick<
 
 type SamplerLogger = Pick<FastifyBaseLogger, "warn">;
 
-/**
- * Values a native balance in USD via the token-prices API (as observability-tools/balance-watcher does).
- * On a failed lookup the USD and price gauges are left untouched (they keep the last good value)
- * and the price probe is set to 0, mirroring the native balance probe semantics.
- */
+/** On a failed lookup the USD and price gauges keep their last value and the price probe is set to 0. */
 async function samplePricing(input: {
   chainId: number;
   balanceNative: number;
@@ -34,7 +30,6 @@ async function samplePricing(input: {
   const labels = chainMetricLabels(input.chainId);
   const network = networkName(input.chainId);
   if (network === String(input.chainId)) {
-    // Not a Superfluid-listed network; the price API has no slug for it.
     input.metrics.relayerSignerBalancePriceProbeSuccess.set(labels, 0);
     input.logger?.warn({ chainId: input.chainId }, "balance sample: no Superfluid network slug for pricing");
     return;
@@ -51,12 +46,11 @@ async function samplePricing(input: {
   input.metrics.relayerSignerBalancePriceProbeSuccess.set(labels, 1);
 }
 
-/** Samples native balance (and, when a price client is given, USD value) for each registry chain's bound OZ relayer signer. */
+/** Samples native balance (and USD value when a price client is given) for each registry chain's bound OZ relayer signer. */
 export async function sampleRelayerSignerBalances(input: {
   registry: LoadedRegistry;
   relayerClient: OzRelayerClient;
   metrics: RelayerBalanceSamplerMetrics;
-  /** Omit to disable USD pricing. */
   priceClient?: TokenPriceClient | undefined;
   logger?: SamplerLogger | undefined;
 }): Promise<void> {

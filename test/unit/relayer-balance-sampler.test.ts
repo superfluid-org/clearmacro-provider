@@ -42,7 +42,6 @@ function makeRegistry(rpcUrl: string) {
 
 const PRICE_API_URL = "https://prices.test";
 
-/** Stubs global fetch: JSON-RPC for the RPC URL, and (optionally) the token-prices API for PRICE_API_URL. */
 function stubRpcFetch(result: string | "error", price?: number | "error"): void {
   vi.stubGlobal(
     "fetch",
@@ -182,7 +181,6 @@ describe("sampleRelayerSignerBalances pricing", () => {
     stubRpcFetch(ONE_ETH, 2000);
     await sampleRelayerSignerBalances({ registry, relayerClient, metrics, priceClient });
 
-    // Balance doubles, price API goes down: native updates, USD/price stay at last good values.
     stubRpcFetch("0x1bc16d674ec80000", "error");
     await sampleRelayerSignerBalances({ registry, relayerClient, metrics, priceClient });
 

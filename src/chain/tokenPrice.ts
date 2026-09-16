@@ -1,25 +1,17 @@
 import type { FastifyBaseLogger } from "fastify";
 
-/** Zero address: the Superfluid token-prices API's key for a chain's native token. */
 export const NATIVE_TOKEN_PRICE_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const DEFAULT_TOKEN_PRICE_API_URL = "https://token-prices-api.superfluid.dev";
 
 export type TokenPriceClientOptions = {
-  /** Base URL of the token-prices API (trailing slashes are ignored). */
   baseUrl?: string | undefined;
-  /** Per-request timeout. */
   timeoutMs?: number | undefined;
-  /** Injectable fetch for tests. Defaults to the global fetch. */
   fetchImpl?: typeof fetch | undefined;
   logger?: Pick<FastifyBaseLogger, "warn"> | undefined;
 };
 
-/**
- * Looks up USD token prices from the Superfluid token-prices API (the same source
- * observability-tools/balance-watcher uses). No caching: the balance sampler polls hourly,
- * and Prometheus gauges already retain their last value when a fetch fails.
- */
+/** Looks up USD token prices from the Superfluid token-prices API. */
 export class TokenPriceClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
@@ -33,7 +25,7 @@ export class TokenPriceClient {
     this.logger = options.logger;
   }
 
-  /** USD price of one whole token, or null when the API is unavailable or answers with an invalid payload. */
+  /** USD price of one whole token, or null when unavailable. */
   async getPrice(network: string, address: string): Promise<number | null> {
     const url = `${this.baseUrl}/v1/${network}/${address}`;
     const controller = new AbortController();
@@ -59,7 +51,6 @@ export class TokenPriceClient {
     }
   }
 
-  /** Price of the native gas token for a Superfluid network slug. */
   getNativePrice(network: string): Promise<number | null> {
     return this.getPrice(network, NATIVE_TOKEN_PRICE_ADDRESS);
   }
