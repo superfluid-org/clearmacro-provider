@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { LoadedRegistry } from "../config/registry.js";
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 import type { RelayExecutionRepository } from "../db/repositories.js";
 import type { RelayExecutionState } from "../tx/lifecycle.js";
 import type { AppMetrics } from "./metrics.js";
@@ -23,7 +24,7 @@ export async function sampleOldestNonterminalAgesOnce(input: {
 }): Promise<void> {
   const nowMs = Date.now();
   for (const chain of input.registry.chainsById.values()) {
-    const chainId = String(chain.chainId);
+    const labels = chainMetricLabels(chain.chainId);
     for (const state of NONTERMINAL_AGE_STATES) {
       const oldestCreatedAt = input.executions.getOldestNonterminalCreatedAt(chain.chainId, state);
       const ageSeconds =
@@ -31,7 +32,7 @@ export async function sampleOldestNonterminalAgesOnce(input: {
           ? 0
           : Math.max(0, (nowMs - Date.parse(oldestCreatedAt)) / 1000);
       input.metrics.oldestNonterminalExecutionAgeGauge.set(
-        { chain_id: chainId, state },
+        { ...labels, state },
         ageSeconds,
       );
     }

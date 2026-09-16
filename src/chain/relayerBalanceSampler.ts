@@ -4,29 +4,59 @@ import type { LoadedRegistry } from "../config/registry.js";
 import type { OzRelayerClient } from "../relayer/client.js";
 import type { AppMetrics } from "../metrics/metrics.js";
 import { withRpcFallback } from "./readiness.js";
-import { networkName } from "./protocolMetadata.js";
+import { chainMetricLabels, networkName } from "./protocolMetadata.js";
+import type { TokenPriceClient } from "./tokenPrice.js";
 
 export type RelayerBalanceSamplerMetrics = Pick<
   AppMetrics,
   | "relayerSignerBalanceNative"
   | "relayerSignerBalanceProbeSuccess"
   | "relayerSignerBalanceLastUpdateTimestampSeconds"
+  | "relayerSignerNativeTokenPriceUsd"
+  | "relayerSignerBalanceUsd"
+  | "relayerSignerBalancePriceProbeSuccess"
 >;
 
-function chainLabels(chainId: number): { chain_id: string; network: string } {
-  return { chain_id: String(chainId), network: networkName(chainId) };
+type SamplerLogger = Pick<FastifyBaseLogger, "warn">;
+
+/** On a failed lookup the USD and price gauges keep their last value and the price probe is set to 0. */
+async function samplePricing(input: {
+  chainId: number;
+  balanceNative: number;
+  priceClient: TokenPriceClient;
+  metrics: RelayerBalanceSamplerMetrics;
+  logger?: SamplerLogger | undefined;
+}): Promise<void> {
+  const labels = chainMetricLabels(input.chainId);
+  const network = networkName(input.chainId);
+  if (network === String(input.chainId)) {
+    input.metrics.relayerSignerBalancePriceProbeSuccess.set(labels, 0);
+    input.logger?.warn({ chainId: input.chainId }, "balance sample: no Superfluid network slug for pricing");
+    return;
+  }
+
+  const price = await input.priceClient.getNativePrice(network);
+  if (price === null) {
+    input.metrics.relayerSignerBalancePriceProbeSuccess.set(labels, 0);
+    return;
+  }
+
+  input.metrics.relayerSignerNativeTokenPriceUsd.set(labels, price);
+  input.metrics.relayerSignerBalanceUsd.set(labels, input.balanceNative * price);
+  input.metrics.relayerSignerBalancePriceProbeSuccess.set(labels, 1);
 }
 
-/** Samples native balance for each registry chain's bound OZ relayer signer. */
+/** Samples native balance (and USD value when a price client is given) for each registry chain's bound OZ relayer signer. */
 export async function sampleRelayerSignerBalances(input: {
   registry: LoadedRegistry;
   relayerClient: OzRelayerClient;
   metrics: RelayerBalanceSamplerMetrics;
-  logger?: Pick<FastifyBaseLogger, "warn">;
+  priceClient?: TokenPriceClient | undefined;
+  logger?: SamplerLogger | undefined;
 }): Promise<void> {
   for (const chain of input.registry.chainsById.values()) {
     const chainId = chain.chainId;
-    const labels = chainLabels(chainId);
+    const labels = chainMetricLabels(chainId);
     const relayerId = input.registry.relayerIdByChainId.get(chainId);
     if (!relayerId) {
       input.metrics.relayerSignerBalanceProbeSuccess.set(labels, 0);
@@ -44,14 +74,27 @@ export async function sampleRelayerSignerBalances(input: {
       continue;
     }
 
+    let balanceNative: number;
     try {
       const balance = await withRpcFallback(chain, (client) => client.getBalance({ address }));
-      input.metrics.relayerSignerBalanceNative.set(labels, Number(formatEther(balance)));
+      balanceNative = Number(formatEther(balance));
+      input.metrics.relayerSignerBalanceNative.set(labels, balanceNative);
       input.metrics.relayerSignerBalanceProbeSuccess.set(labels, 1);
       input.metrics.relayerSignerBalanceLastUpdateTimestampSeconds.set(labels, Math.floor(Date.now() / 1000));
     } catch (error) {
       input.metrics.relayerSignerBalanceProbeSuccess.set(labels, 0);
       input.logger?.warn({ err: error, chainId }, "balance sample: getBalance failed");
+      continue;
+    }
+
+    if (input.priceClient) {
+      await samplePricing({
+        chainId,
+        balanceNative,
+        priceClient: input.priceClient,
+        metrics: input.metrics,
+        logger: input.logger,
+      });
     }
   }
 }
@@ -60,6 +103,7 @@ export function startRelayerSignerBalanceSampler(input: {
   registry: LoadedRegistry;
   relayerClient: OzRelayerClient;
   metrics: RelayerBalanceSamplerMetrics;
+  priceClient?: TokenPriceClient | undefined;
   intervalMs: number;
   logger: Pick<FastifyBaseLogger, "warn" | "info">;
 }): { stop: () => void; sampleOnce: () => Promise<void> } {
@@ -76,6 +120,7 @@ export function startRelayerSignerBalanceSampler(input: {
         registry: input.registry,
         relayerClient: input.relayerClient,
         metrics: input.metrics,
+        priceClient: input.priceClient,
         logger: input.logger,
       });
     } finally {

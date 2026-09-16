@@ -1,3 +1,4 @@
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 import type { AppMetrics } from "./metrics.js";
 
 export type ActionableFailureStage =
@@ -93,7 +94,7 @@ export function recordActionableFailure(
     return;
   }
   metrics.actionableFailureCounter.inc({
-    chain_id: String(input.chainId),
+    ...chainMetricLabels(input.chainId),
     stage: input.stage,
     code: input.code,
   });
@@ -111,7 +112,7 @@ export function recordOperationalRetry(
     return;
   }
   metrics.operationalRetryCounter.inc({
-    chain_id: String(input.chainId),
+    ...chainMetricLabels(input.chainId),
     stage: input.stage,
     reason: input.reason,
   });

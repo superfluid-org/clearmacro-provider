@@ -1,4 +1,5 @@
 import type { ApiError } from "../api/errors.js";
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 import type { AppMetrics } from "./metrics.js";
 
 export type RequestResult =
@@ -54,7 +55,7 @@ export function recordRequestOutcome(
     return;
   }
   metrics.requestCounter.inc({
-    chain_id: String(input.chainId),
+    ...chainMetricLabels(input.chainId),
     kind: input.kind,
     result: input.result,
   });
@@ -68,7 +69,7 @@ export function recordValidationFailureIfApplicable(
     return;
   }
   metrics.validationFailureCounter.inc({
-    chain_id: String(input.chainId),
+    ...chainMetricLabels(input.chainId),
     code: input.code,
   });
 }

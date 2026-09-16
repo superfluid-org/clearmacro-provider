@@ -1,3 +1,4 @@
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 import type { RelayExecutionRow } from "../db/repositories.js";
 import type { AppMetrics } from "./metrics.js";
 
@@ -24,7 +25,7 @@ export function recordTerminalTransition(
     return;
   }
   metrics.executionsTerminalCounter.inc({
-    chain_id: String(row.chainId),
+    ...chainMetricLabels(row.chainId),
     state: row.state,
     code: extractTerminalErrorCode(row.lastErrorJson),
   });

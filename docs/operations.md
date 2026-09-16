@@ -113,7 +113,11 @@ The OpenZeppelin Relayer signer must hold native gas on every chain in `config/p
   - `clearmacro_relayer_signer_balance_native{chain_id,network}` — latest native-token balance
   - `clearmacro_relayer_signer_balance_probe_success{chain_id,network}` — `1` if the last sample succeeded
   - `clearmacro_relayer_signer_balance_last_update_timestamp_seconds{chain_id,network}` — last successful sample time (alert if stale)
-- **Alerting:** Gate low-balance alerts on `clearmacro_relayer_signer_balance_probe_success == 1` so a failed RPC/OZ sample is not mistaken for an empty wallet. Treat data as stale when `time() - clearmacro_relayer_signer_balance_last_update_timestamp_seconds` exceeds roughly two sample intervals (default ~2 hours at the 60-minute interval). Readiness and relay traffic still catch zero balance on admission; these metrics are for coarse monitoring between samples.
+  - `clearmacro_relayer_signer_balance_usd{chain_id,network}` — the same balance valued in USD (same approach as `observability-tools/balance-watcher`)
+  - `clearmacro_relayer_signer_native_token_price_usd{chain_id,network}` — native-token USD price used for that valuation
+  - `clearmacro_relayer_signer_balance_price_probe_success{chain_id,network}` — `1` if the last price fetch succeeded
+- **Pricing:** prices come from the Superfluid token-prices API (`TOKEN_PRICE_API_URL`, default `https://token-prices-api.superfluid.dev`, looked up as `/v1/<network>/0x000…000` using the `@superfluid-finance/metadata` network slug). On a failed lookup the USD and price gauges keep their last value and the price probe reads `0` (same semantics as the native balance probe); chains without a Superfluid metadata slug get no USD gauges. `RELAYER_SIGNER_BALANCE_PRICING_ENABLED=false` turns pricing off; `TOKEN_PRICE_REQUEST_TIMEOUT_MS` (default 10000) bounds each lookup.
+- **Alerting:** Gate low-balance alerts on `clearmacro_relayer_signer_balance_probe_success == 1` so a failed RPC/OZ sample is not mistaken for an empty wallet. For USD thresholds, additionally gate on `clearmacro_relayer_signer_balance_price_probe_success == 1` (or accept a stale price by only checking the native probe). Treat data as stale when `time() - clearmacro_relayer_signer_balance_last_update_timestamp_seconds` exceeds roughly two sample intervals (default ~2 hours at the 60-minute interval). Readiness and relay traffic still catch zero balance on admission; these metrics are for coarse monitoring between samples.
 
 ## Actionable failure metrics
 

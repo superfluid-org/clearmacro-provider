@@ -18,6 +18,7 @@ import {
   type ActionableFailureMetrics,
   type OperationalRetryMetrics,
 } from "../metrics/actionableFailures.js";
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 
 type AuthorizationPollOutcome =
   | "promoted"
@@ -382,7 +383,7 @@ export async function processAuthorizationWorkerTick(
   for (const execution of awaiting) {
     const outcome = await processAuthorizationExecution(deps, execution);
     deps.metrics.safeAuthorizationPollCounter.inc({
-      chain_id: String(execution.chainId),
+      ...chainMetricLabels(execution.chainId),
       outcome,
     });
   }

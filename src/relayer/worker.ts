@@ -27,6 +27,7 @@ import {
   type OperationalRetryMetrics,
 } from "../metrics/actionableFailures.js";
 import type { AppMetrics } from "../metrics/metrics.js";
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 
 export type RelayerWorkerDeps = {
   executions: RelayExecutionRepository;
@@ -462,7 +463,7 @@ export async function processRelayerWorkerTick(
         const transient = isTransientSubmitError(error);
         if (transient && nextAttempts < submitRetryCount) {
           deps.metrics?.relayerSubmissionCounter?.inc({
-            chain_id: String(execution.chainId),
+            ...chainMetricLabels(execution.chainId),
             outcome: "retry",
           });
           deps.executions.updateLastError(execution.id, errorPayload);
@@ -479,7 +480,7 @@ export async function processRelayerWorkerTick(
           continue;
         }
         deps.metrics?.relayerSubmissionCounter?.inc({
-          chain_id: String(execution.chainId),
+          ...chainMetricLabels(execution.chainId),
           outcome: "failed",
         });
         deps.executions.transitionState(execution.id, "failed", {
@@ -532,7 +533,7 @@ export async function processRelayerWorkerTick(
       }
 
       deps.metrics?.relayerSubmissionCounter?.inc({
-        chain_id: String(execution.chainId),
+        ...chainMetricLabels(execution.chainId),
         outcome: "accepted",
       });
 
@@ -768,7 +769,7 @@ export async function processRelayerWorkerTick(
         });
       } finally {
         deps.metrics?.relayerPollLatency?.observe(
-          { chain_id: String(execution.chainId) },
+          chainMetricLabels(execution.chainId),
           (performance.now() - pollStartedAt) / 1000,
         );
       }

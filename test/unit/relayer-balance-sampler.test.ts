@@ -8,6 +8,7 @@ import {
   startRelayerSignerBalanceSampler,
 } from "../../src/chain/relayerBalanceSampler.js";
 import { createMetrics } from "../../src/metrics/metrics.js";
+import { TokenPriceClient } from "../../src/chain/tokenPrice.js";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -39,10 +40,18 @@ function makeRegistry(rpcUrl: string) {
   return registry;
 }
 
-function stubRpcFetch(result: string | "error"): void {
+const PRICE_API_URL = "https://prices.test";
+
+function stubRpcFetch(result: string | "error", price?: number | "error"): void {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url: unknown, init?: RequestInit) => {
+    vi.fn(async (url: unknown, init?: RequestInit) => {
+      if (String(url).startsWith(PRICE_API_URL)) {
+        if (price === undefined || price === "error") {
+          return new Response(JSON.stringify({ error: "price down" }), { status: 503 });
+        }
+        return new Response(JSON.stringify({ price }), { status: 200 });
+      }
       if (result === "error") {
         return new Response("rpc down", { status: 500 });
       }
@@ -50,6 +59,10 @@ function stubRpcFetch(result: string | "error"): void {
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: payload.id, result }), { status: 200 });
     }),
   );
+}
+
+function makePriceClient(): TokenPriceClient {
+  return new TokenPriceClient({ baseUrl: PRICE_API_URL });
 }
 
 function metricValue(metricsText: string, name: string, chainId: string): number | undefined {
@@ -121,6 +134,96 @@ describe("sampleRelayerSignerBalances", () => {
     const text = await metrics.registry.metrics();
     expect(metricValue(text, "clearmacro_relayer_signer_balance_probe_success", "1")).toBe(0);
     expect(metricValue(text, "clearmacro_relayer_signer_balance_native", "1")).toBeUndefined();
+  });
+});
+
+describe("sampleRelayerSignerBalances pricing", () => {
+  const ONE_ETH = "0xde0b6b3a7640000";
+
+  it("does not emit USD gauges when no price client is given", async () => {
+    stubRpcFetch(ONE_ETH, 2000);
+    const metrics = createMetrics();
+
+    await sampleRelayerSignerBalances({ registry: makeRegistry("http://rpc.test"), relayerClient, metrics });
+
+    const text = await metrics.registry.metrics();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_native", "1")).toBe(1);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_usd", "1")).toBeUndefined();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_price_probe_success", "1")).toBeUndefined();
+  });
+
+  it("values the native balance in USD using the Superfluid network slug", async () => {
+    stubRpcFetch(ONE_ETH, 2000);
+    const metrics = createMetrics();
+
+    await sampleRelayerSignerBalances({
+      registry: makeRegistry("http://rpc.test"),
+      relayerClient,
+      metrics,
+      priceClient: makePriceClient(),
+    });
+
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const priceCall = fetchMock.mock.calls.map((c) => String(c[0])).find((u) => u.startsWith(PRICE_API_URL));
+    expect(priceCall).toBe(`${PRICE_API_URL}/v1/eth-mainnet/0x0000000000000000000000000000000000000000`);
+
+    const text = await metrics.registry.metrics();
+    expect(metricValue(text, "clearmacro_relayer_signer_native_token_price_usd", "1")).toBe(2000);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_usd", "1")).toBe(2000);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_price_probe_success", "1")).toBe(1);
+  });
+
+  it("keeps the last USD and price gauges on a pricing outage and flags the price probe as failed", async () => {
+    const metrics = createMetrics();
+    const registry = makeRegistry("http://rpc.test");
+    const priceClient = makePriceClient();
+
+    stubRpcFetch(ONE_ETH, 2000);
+    await sampleRelayerSignerBalances({ registry, relayerClient, metrics, priceClient });
+
+    stubRpcFetch("0x1bc16d674ec80000", "error");
+    await sampleRelayerSignerBalances({ registry, relayerClient, metrics, priceClient });
+
+    const text = await metrics.registry.metrics();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_native", "1")).toBe(2);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_usd", "1")).toBe(2000);
+    expect(metricValue(text, "clearmacro_relayer_signer_native_token_price_usd", "1")).toBe(2000);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_price_probe_success", "1")).toBe(0);
+  });
+
+  it("marks the price probe failed and emits no USD gauge when no price was ever available", async () => {
+    stubRpcFetch(ONE_ETH, "error");
+    const metrics = createMetrics();
+
+    await sampleRelayerSignerBalances({
+      registry: makeRegistry("http://rpc.test"),
+      relayerClient,
+      metrics,
+      priceClient: makePriceClient(),
+    });
+
+    const text = await metrics.registry.metrics();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_native", "1")).toBe(1);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_probe_success", "1")).toBe(1);
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_usd", "1")).toBeUndefined();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_price_probe_success", "1")).toBe(0);
+  });
+
+  it("skips pricing when the RPC balance sample fails", async () => {
+    stubRpcFetch("error", 2000);
+    const metrics = createMetrics();
+
+    await sampleRelayerSignerBalances({
+      registry: makeRegistry("http://rpc.test"),
+      relayerClient,
+      metrics,
+      priceClient: makePriceClient(),
+    });
+
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).startsWith(PRICE_API_URL))).toBe(false);
+    const text = await metrics.registry.metrics();
+    expect(metricValue(text, "clearmacro_relayer_signer_balance_usd", "1")).toBeUndefined();
   });
 });
 

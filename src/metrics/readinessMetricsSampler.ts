@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { LoadedRegistry } from "../config/registry.js";
 import type { ChainReadinessResult } from "../chain/readiness.js";
+import { chainMetricLabels } from "../chain/protocolMetadata.js";
 import type { AppMetrics } from "./metrics.js";
 
 export type ReadinessMetricsSamplerMetrics = Pick<AppMetrics, "readinessGauge">;
@@ -14,18 +15,18 @@ function setReadinessForChain(
   result: ChainReadinessResult,
 ): string {
   const reason = result.ready ? "none" : (result.reasonCode ?? "PROVIDER_NOT_READY");
-  const chainLabel = String(chainId);
+  const labels = chainMetricLabels(chainId);
 
   if (previousReason !== undefined && previousReason !== reason) {
-    metrics.readinessGauge.remove({ chain_id: chainLabel, reason: previousReason });
+    metrics.readinessGauge.remove({ ...labels, reason: previousReason });
   }
   for (const staleReason of READINESS_REASONS) {
     if (staleReason !== reason) {
-      metrics.readinessGauge.remove({ chain_id: chainLabel, reason: staleReason });
+      metrics.readinessGauge.remove({ ...labels, reason: staleReason });
     }
   }
 
-  metrics.readinessGauge.set({ chain_id: chainLabel, reason }, result.ready ? 1 : 0);
+  metrics.readinessGauge.set({ ...labels, reason }, result.ready ? 1 : 0);
   return reason;
 }
 
