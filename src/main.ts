@@ -85,6 +85,7 @@ async function main(): Promise<void> {
     env: { apiAuthEnabled: env.apiAuthEnabled, apiClients: env.apiClients },
     requestMaxMetadataKeys: env.requestMaxMetadataKeys,
     requestMaxMetadataValueLength: env.requestMaxMetadataValueLength,
+    nativeValueEnabled: env.relayerNativeValueEnabled,
     logLevel: env.logLevel,
     metrics,
     getChainReadiness: evaluateChainReadinessUncached,
@@ -220,6 +221,7 @@ async function main(): Promise<void> {
             batchSize: env.relayerWorkerBatchSize,
             submitRetryCount: 3,
             ozPollBackoff,
+            nativeValueEnabled: env.relayerNativeValueEnabled,
             metrics,
           }),
         ...(env.safeAuthorizationEnabled && safeClient

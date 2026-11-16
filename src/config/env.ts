@@ -132,6 +132,11 @@ export function loadEnv() {
       | "fatal",
     runMigrationsOnStart: parseBoolean("RUN_MIGRATIONS_ON_START", true),
     relayerWorkerEnabled: parseBoolean("RELAYER_WORKER_ENABLED", true),
+    /**
+     * When false (default), admission and the worker reject a non-zero native `value`.
+     * The relayer EOA would otherwise attach that ETH, and the Host sends any unspent remainder to the signer.
+     */
+    relayerNativeValueEnabled: parseBoolean("RELAYER_NATIVE_VALUE_ENABLED", false),
     relayerWorkerPollIntervalMs: parseInteger("RELAYER_WORKER_POLL_INTERVAL_MS", 2000, 1),
     relayerWorkerBatchSize: parseInteger("RELAYER_WORKER_BATCH_SIZE", 25, 1),
     apiAuthEnabled,

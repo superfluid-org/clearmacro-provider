@@ -74,7 +74,7 @@ const SharedCreateRelayFields = {
     Type.Unsafe<typeof UintString>({
       ...UintString,
       description:
-        "Native token value to pass to the forwarder call; defaults to `0` when omitted.",
+        "Native token value to pass to the forwarder call, as a base-10 string. Defaults to `0` when omitted. Non-zero values are rejected unless the provider sets `RELAYER_NATIVE_VALUE_ENABLED=true`.",
     }),
   ),
   forceExecuteAfterPreflightRevert: Type.Optional(
@@ -507,7 +507,7 @@ export const ErrorBodySchema = Type.Object({
   error: Type.Object({
     code: Type.String({
       description:
-        "Machine-readable error code such as `VALIDATION_ERROR`, `UNAUTHORIZED`, `CHAIN_NOT_ALLOWED`, `MACRO_NOT_ALLOWED`, `PROVIDER_NOT_ALLOWED`, `DUPLICATE_EXECUTION`, `INVALID_CLEAR_MACRO_PAYLOAD`, `CLEAR_MACRO_EXPIRED`, `CLEAR_MACRO_NOT_YET_VALID`, `SIGNATURE_INVALID`, `PREFLIGHT_REVERTED`, `PROVIDER_NOT_READY`, `RELAYER_UNAVAILABLE`, `RELAYER_RATE_LIMITED`, or `CHAIN_UNAVAILABLE`.",
+        "Machine-readable error code such as `VALIDATION_ERROR`, `UNAUTHORIZED`, `CHAIN_NOT_ALLOWED`, `NATIVE_VALUE_NOT_ALLOWED`, `MACRO_NOT_ALLOWED`, `PROVIDER_NOT_ALLOWED`, `DUPLICATE_EXECUTION`, `INVALID_CLEAR_MACRO_PAYLOAD`, `CLEAR_MACRO_EXPIRED`, `CLEAR_MACRO_NOT_YET_VALID`, `SIGNATURE_INVALID`, `PREFLIGHT_REVERTED`, `PROVIDER_NOT_READY`, `RELAYER_UNAVAILABLE`, `RELAYER_RATE_LIMITED`, or `CHAIN_UNAVAILABLE`.",
     }),
     message: Type.String({ description: "Human-readable error summary." }),
     category: Type.Union(

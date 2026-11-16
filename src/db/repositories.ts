@@ -115,7 +115,8 @@ export type CreateRequestAuditOutcome =
   | "READINESS_UNAVAILABLE"
   | "CHAIN_UNAVAILABLE"
   | "CHAIN_NOT_ALLOWED"
-  | "VALIDATION_ERROR";
+  | "VALIDATION_ERROR"
+  | "NATIVE_VALUE_NOT_ALLOWED";
 
 export type CreateRequestAuditInput = {
   clientId: string;

@@ -28,6 +28,7 @@ export type AppDeps = {
   env: Pick<AppEnv, "apiAuthEnabled" | "apiClients">;
   requestMaxMetadataKeys: number;
   requestMaxMetadataValueLength: number;
+  nativeValueEnabled?: boolean;
   logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
   getChainReadiness: RegisterRoutesDeps["getChainReadiness"];
   getReadyzChainReadiness: RegisterRoutesDeps["getReadyzChainReadiness"];
@@ -138,6 +139,7 @@ export async function createApp(deps: AppDeps) {
     resolveClientIdFromBearer: bearerResolver,
     requestMaxMetadataKeys: deps.requestMaxMetadataKeys,
     requestMaxMetadataValueLength: deps.requestMaxMetadataValueLength,
+    nativeValueEnabled: deps.nativeValueEnabled === true,
     getChainReadiness: deps.getChainReadiness,
     getReadyzChainReadiness: deps.getReadyzChainReadiness,
     getForwarderDigest: deps.getForwarderDigest,

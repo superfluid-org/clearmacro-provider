@@ -202,6 +202,68 @@ describe("relayer worker", () => {
     expect(relayer?.status).toBe("submitted");
   });
 
+  it("fails a non-zero value without submitting unless native value is enabled", async () => {
+    const { executions, executionEvents, relayerTransactions, registry } = setup();
+    const blocked = executions.createPending(createExecutionInput({ value: "5", digest: "0x" + "b1".repeat(32) }));
+    let submits = 0;
+    await processRelayerWorkerTick({
+      executions,
+      executionEvents,
+      relayerTransactions,
+      relayerClient: stubRelayerClient(() => {
+        submits += 1;
+      }) as never,
+      registry,
+      batchSize: 10,
+      preflightSimulation: async () => "ok",
+    });
+    expect(submits).toBe(0);
+    const failed = executions.getByIdOrThrow(blocked.id);
+    expect(failed.state).toBe("failed");
+    expect(JSON.parse(failed.lastErrorJson ?? "{}").code).toBe("NATIVE_VALUE_NOT_ALLOWED");
+
+    const allowed = executions.createPending(createExecutionInput({ value: "5", digest: "0x" + "b2".repeat(32) }));
+    let submittedValue = "";
+    await processRelayerWorkerTick({
+      executions,
+      executionEvents,
+      relayerTransactions,
+      relayerClient: {
+        ...stubRelayerClient(),
+        submitTransaction: async (_id: string, tx: { value?: string }) => {
+          submittedValue = tx.value ?? "";
+          return {
+            id: "oz-tx-value",
+            hash: "0x" + "ee".repeat(32),
+            status: "submitted",
+            status_reason: null,
+            created_at: new Date().toISOString(),
+            sent_at: new Date().toISOString(),
+            confirmed_at: null,
+            gas_price: "1",
+            gas_limit: 21000,
+            nonce: 1,
+            value: tx.value ?? "0",
+            from: "0x0000000000000000000000000000000000000010",
+            to: "0x0000000000000000000000000000000000000001",
+            relayer_id: "relayer-main",
+            data: "0x",
+            max_fee_per_gas: null,
+            max_priority_fee_per_gas: null,
+            mined_at: null,
+            receipt: null,
+          };
+        },
+      } as never,
+      registry,
+      batchSize: 10,
+      nativeValueEnabled: true,
+      preflightSimulation: async () => "ok",
+    });
+    expect(submittedValue).toBe("5");
+    expect(executions.getByIdOrThrow(allowed.id).state).toBe("submitted");
+  });
+
   it("projects submitted execution to reverted on failed revert reason", async () => {
     const { executions, executionEvents, relayerTransactions, registry } = setup();
     const created = executions.createPending(createExecutionInput());

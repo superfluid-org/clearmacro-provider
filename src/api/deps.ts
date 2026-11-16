@@ -27,6 +27,8 @@ export type RegisterRoutesDeps = {
   resolveClientIdFromBearer: (bearerToken: string) => string | null;
   requestMaxMetadataKeys: number;
   requestMaxMetadataValueLength: number;
+  /** When false, a non-zero relay `value` is rejected. Defaults to false. */
+  nativeValueEnabled?: boolean;
   getChainReadiness: (chainId: number) => Promise<ChainReadinessResult>;
   getReadyzChainReadiness: (chainId: number) => Promise<ChainReadinessResult>;
   getForwarderDigest: (

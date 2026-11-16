@@ -24,6 +24,33 @@ describe("API integration", () => {
     expect(statusBody.state).toBe("pending");
   });
 
+  it("rejects a non-zero native value unless the provider enables it", async () => {
+    const denied = await createTestHarness();
+    const rejected = await denied.app.inject({
+      method: "POST",
+      url: "/v1/relay-executions",
+      payload: await buildRelayPayload({ value: "1" }),
+    });
+    expect(rejected.statusCode).toBe(403);
+    expect(rejected.json<{ error: { code: string } }>().error.code).toBe("NATIVE_VALUE_NOT_ALLOWED");
+
+    const zero = await denied.app.inject({
+      method: "POST",
+      url: "/v1/relay-executions",
+      payload: await buildRelayPayload({ value: "0" }),
+    });
+    expect(zero.statusCode).toBe(202);
+
+    const allowed = await createTestHarness({ nativeValueEnabled: true });
+    const accepted = await allowed.app.inject({
+      method: "POST",
+      url: "/v1/relay-executions",
+      payload: await buildRelayPayload({ value: "1" }),
+    });
+    expect(accepted.statusCode).toBe(202);
+    expect(accepted.json<{ value: string }>().value).toBe("1");
+  });
+
   it("replays identical signed intent with 200 for same anonymous caller", async () => {
     const { app } = await createTestHarness();
     const payload = await buildRelayPayload();

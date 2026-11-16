@@ -28,6 +28,7 @@ import {
 } from "../metrics/actionableFailures.js";
 import type { AppMetrics } from "../metrics/metrics.js";
 import { chainMetricLabels } from "../chain/protocolMetadata.js";
+import { nativeValueWei } from "../tx/nativeValue.js";
 
 export type RelayerWorkerDeps = {
   executions: RelayExecutionRepository;
@@ -37,6 +38,8 @@ export type RelayerWorkerDeps = {
   registry: LoadedRegistry;
   batchSize: number;
   submitRetryCount?: number;
+  /** When false (default), a non-zero stored `value` fails the execution instead of being submitted. */
+  nativeValueEnabled?: boolean;
   /** When set, poll loop backs off across ticks after OZ HTTP 429. */
   ozPollBackoff?: { until: number };
   preflightSimulation?: (
@@ -335,6 +338,27 @@ export async function processRelayerWorkerTick(
           code: "CHAIN_NOT_ALLOWED",
         });
         continue;
+      }
+      if (deps.nativeValueEnabled !== true) {
+        const wei = nativeValueWei(execution.value);
+        if (wei === null || wei !== 0n) {
+          deps.executions.transitionState(execution.id, "failed", {
+            errorJson: JSON.stringify({
+              code: "NATIVE_VALUE_NOT_ALLOWED",
+              message: "Relayer native value transfers are disabled.",
+              category: "validation",
+              retryable: false,
+            }),
+          });
+          deps.executionEvents.append({
+            executionId: execution.id,
+            type: "state_changed",
+            actor: "worker",
+            reason: "Native value disabled",
+            detailsJson: JSON.stringify({ value: execution.value }),
+          });
+          continue;
+        }
       }
       const relayer = await deps.relayerClient.getRelayer(
         execution.ozRelayerId,

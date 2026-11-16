@@ -13,6 +13,7 @@ const ENV_KEYS = [
   "RELAYER_SIGNER_BALANCE_PRICING_ENABLED",
   "TOKEN_PRICE_API_URL",
   "TOKEN_PRICE_REQUEST_TIMEOUT_MS",
+  "RELAYER_NATIVE_VALUE_ENABLED",
   "SAFE_API_KEY",
   "SAFE_AUTHORIZATION_ENABLED",
 ] as const;
@@ -48,6 +49,7 @@ describe("loadEnv", () => {
     expect(env.apiAuthEnabled).toBe(true);
     expect(env.providerName).toBe("macros.superfluid.eth");
     expect(env.relayerSignerBalanceSampleIntervalMs).toBe(60 * 60 * 1000);
+    expect(env.relayerNativeValueEnabled).toBe(false);
     expect(env.safeAuthorizationEnabled).toBe(false);
     expect(env.safeApiKey).toBeNull();
   });
@@ -78,6 +80,16 @@ describe("loadEnv", () => {
     setRequiredEnv();
     process.env.TOKEN_PRICE_API_URL = "not a url";
     expect(() => loadEnv()).toThrow(/TOKEN_PRICE_API_URL/);
+  });
+
+  it("enables relayer native value only when RELAYER_NATIVE_VALUE_ENABLED=true", () => {
+    process.env.DATABASE_PATH = ":memory:";
+    setRequiredEnv();
+    expect(loadEnv().relayerNativeValueEnabled).toBe(false);
+    process.env.RELAYER_NATIVE_VALUE_ENABLED = "true";
+    expect(loadEnv().relayerNativeValueEnabled).toBe(true);
+    process.env.RELAYER_NATIVE_VALUE_ENABLED = "false";
+    expect(loadEnv().relayerNativeValueEnabled).toBe(false);
   });
 
   it("parses relayer signer balance sample interval", () => {

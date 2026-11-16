@@ -24,6 +24,7 @@ import {
   type StoredPermit2Json,
 } from "../chain/permit2.js";
 import type { RegistryChain } from "../config/schema.js";
+import { isZeroNativeValue } from "../tx/nativeValue.js";
 
 export type CreateRelayExecutionBody = CanonicalCreateBodyInput;
 
@@ -157,6 +158,19 @@ async function validateSharedAdmission(
         ),
       };
     }
+  }
+
+  if (deps.nativeValueEnabled !== true && !isZeroNativeValue(body.value)) {
+    audit(deps, auditBase, "NATIVE_VALUE_NOT_ALLOWED", null);
+    return {
+      error: new ApiError(
+        403,
+        "NATIVE_VALUE_NOT_ALLOWED",
+        "Relayer native value transfers are disabled.",
+        "validation",
+        false,
+      ),
+    };
   }
 
   let decoded;

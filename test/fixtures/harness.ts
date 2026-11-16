@@ -24,6 +24,7 @@ export type HarnessOverrides = {
   providerName?: string;
   requestMaxMetadataKeys?: number;
   requestMaxMetadataValueLength?: number;
+  nativeValueEnabled?: boolean;
   relayerClient?: OzRelayerClient;
   getChainReadiness?: AppDeps["getChainReadiness"];
   getReadyzChainReadiness?: AppDeps["getReadyzChainReadiness"];
@@ -136,6 +137,7 @@ export async function createTestHarness(overrides?: HarnessOverrides) {
     env: overrides?.env ?? { apiAuthEnabled, apiClients },
     requestMaxMetadataKeys: overrides?.requestMaxMetadataKeys ?? 20,
     requestMaxMetadataValueLength: overrides?.requestMaxMetadataValueLength ?? 256,
+    nativeValueEnabled: overrides?.nativeValueEnabled === true,
     logLevel: "error",
     getChainReadiness,
     getReadyzChainReadiness,

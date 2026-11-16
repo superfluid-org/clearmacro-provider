@@ -37,6 +37,7 @@ describe("validation failure allowlist", () => {
     "PROVIDER_NOT_ALLOWED",
     "MACRO_NOT_ALLOWED",
     "CHAIN_NOT_ALLOWED",
+    "NATIVE_VALUE_NOT_ALLOWED",
     "CLEAR_MACRO_EXPIRED",
     "CLEAR_MACRO_NOT_YET_VALID",
     "SIGNATURE_INVALID",
