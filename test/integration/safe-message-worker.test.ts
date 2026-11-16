@@ -101,7 +101,7 @@ function authorizationDeps(
       signature: string;
     }) => Promise<boolean>;
     preflightSimulation?: () => Promise<"ok" | "deterministic_revert" | "rpc_unavailable">;
-    metricsInc?: (labels: { chain_id: string; outcome: string }) => void;
+    metricsInc?: (labels: { chain_id: string; network: string; outcome: string }) => void;
   },
 ) {
   return {
@@ -242,7 +242,11 @@ describe("safe message authorization worker", () => {
     expect(updated.state).toBe("awaiting_authorization");
     expect(updated.authorizationPollAttempts).toBe(1);
     expect(metricsInc).toHaveBeenCalledTimes(1);
-    expect(metricsInc).toHaveBeenCalledWith({ chain_id: "1", outcome: "waiting" });
+    expect(metricsInc).toHaveBeenCalledWith({
+      chain_id: "1",
+      network: "eth-mainnet",
+      outcome: "waiting",
+    });
   });
 
   it("schedules retry on Safe API 404 without terminal failure", async () => {
