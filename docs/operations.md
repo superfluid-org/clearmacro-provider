@@ -55,34 +55,32 @@ It requires Docker, Docker Compose v2, Foundry, and local Anvil/OZ relayer fixtu
 
 ## Production Deployment
 
+Production runs `compose.prod.yaml`. `app` and `admin` are built from this checkout. `pnpm run prod:up` builds those images, starts Redis and the OpenZeppelin relayer, applies config, and recreates the app. It does not run `prod:init` and does not mint a signer.
+
+Pushing `main` publishes `ghcr.io/superfluid-org/clearmacro-provider:main` for a deployer that pulls an image. `prod:up` does not pull that tag.
+
 Production config has three state planes:
 
 | Plane | Owner | Updated by |
 |-------|-------|------------|
-| Bootstrap files (`config/oz-relayer/*`) | Host filesystem | `prod:init`, then `prod:up` / `prod:apply-config` (audit copy) |
+| Bootstrap files (`config/oz-relayer/*`) | Host filesystem | `prod:init`, then `prod:up` / `prod:apply-config` |
 | Live OZ networks/relayers | Redis via OZ API | `prod:up` / `prod:apply-config` |
-| App policy (`config/provider.json`) | App container | Edit file + `prod:up` |
+| App policy (`config/provider.json`) | Host file | Edit the file, then `pnpm run prod:up` |
 
-All admin commands run on the host over SSH. The app and the `admin` job both talk to OZ at `http://oz-relayer:8080` on the Compose network. Do not publish OZ admin ports to the host to fix script access; use `pnpm run prod:apply-config` / `prod:check-config` instead.
+The app and the `admin` job both talk to OZ at `http://oz-relayer:8080` on the Compose network. Do not publish OZ admin ports to the host.
 
-1. Create production `.env` from `.env.example`.
-2. Set `PROVIDER_NAME`; `pnpm run prod:init` fills generated relayer/Redis secrets and `OZ_RELAYER_UID` / `OZ_RELAYER_GID` when missing on POSIX systems.
-3. Do not set `DATABASE_PATH` for production Compose; `compose.prod.yaml` uses `/data/clearmacro-provider.sqlite`.
-4. Provide `config/provider.json` from a checked-in example or generated Superfluid template, then set production RPC URLs and `macroPolicy`.
-5. Run **`pnpm run prod:init`** once to generate secrets, keystore, and bootstrap `config/oz-relayer/*` files.
-6. Fund the signer on every configured chain (`SIMULATE=1 pnpm run prod:fund`, then `pnpm run prod:fund`, or fund manually).
-7. Run **`pnpm run prod:up`** to validate, start Redis/OZ, verify/import live OZ state, start the app, and run checks.
+`compose.prod.yaml` uses `/data/clearmacro-provider.sqlite` for the database. Do not set `DATABASE_PATH` for that Compose file.
 
 At startup, the app queries OpenZeppelin Relayer and binds exactly one active relayer per configured `chainId`. Missing or ambiguous relayer matches fail startup by design.
 
 ## Config lifecycle (day 2)
 
-`config/provider.json` is the single source of truth for supported chains, forwarders, app RPCs, and macro policy.
+`config/provider.json` is the source of truth for supported chains, forwarders, app RPCs, and macro policy.
 
 | Change | Command |
 |--------|---------|
 | First-time bootstrap | `pnpm run prod:init`, fund signer, then `pnpm run prod:up` |
-| Any later config change | Edit `provider.json`, then `pnpm run prod:up` |
+| Any later config or code change | Edit, then `pnpm run prod:up` |
 | Full production check | `pnpm run prod:check` |
 | Preview config apply actions | `pnpm run prod:apply-config:dry-run` |
 | Check live vs desired drift | `pnpm run prod:check-config` |
