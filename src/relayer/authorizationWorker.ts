@@ -44,6 +44,7 @@ export type AuthorizationWorkerDeps = {
     safeAuthorizationPollCounter: {
       inc(labels: {
         chain_id: string;
+        network: string;
         outcome: AuthorizationPollOutcome;
       }): void;
     };
